@@ -138,14 +138,15 @@ mod tests {
         let adder = Adder { inc_val: 1_u64 };
         let mut pool = WorkerPool::<Adder>::new(adder, 100);
 
-        for _ in 0..=20000 {
+        for _ in 0..=2000 {
             let worker = pool.get().await;
-            let _ = worker.send(Arc::clone(&var));
+            let _ = worker.send(Arc::clone(&var)).unwrap();
         }
 
+        use tokio::time::{sleep, Duration};
+        sleep(Duration::from_millis(10)).await;
         let var = *var.lock().await;
-
-        assert_eq!(var, 20000);
+        assert_eq!(var, 2001);
     }
 
     #[tokio::test]

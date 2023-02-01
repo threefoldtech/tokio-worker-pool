@@ -31,8 +31,8 @@ where
                             let _ = ch.send(result);
                         }
                     }
-                    Err(_) => {
-                        log::debug!("worker handler dropped without receiving a job");
+                    Err(err) => {
+                        log::debug!("worker handler dropped without receiving a job: {}", err);
                     }
                 };
             }
