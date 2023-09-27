@@ -88,8 +88,9 @@ where
     /// close make sure all workers exited before returning
     /// it does not cancel current worker job but instead waits
     /// for it to finish
-    pub async fn close(mut self) {
-        self.receiver.close();
+    pub async fn close(self) {
+        drop(self.receiver);
+
         while self.size.load(Ordering::Relaxed) != 0 {
             self.notify.notified().await;
         }
@@ -98,7 +99,7 @@ where
 
 /// WorkerHandle is used to interact with a worker
 pub struct WorkerHandle<W: Work> {
-    pub sender: Job<W>,
+    sender: Job<W>,
 }
 
 impl<W> WorkerHandle<W>
@@ -180,6 +181,20 @@ mod tests {
     async fn test_workerpool_ret() {
         let mult = Multiplier;
         let mut pool = WorkerPool::new(mult, 1);
+
+        let worker = pool.get().await;
+        let out = worker.run((10.0, 20.0)).await.unwrap();
+
+        assert_eq!(out, 10.0 * 20.0);
+    }
+
+    #[tokio::test]
+    async fn test_drop_one() {
+        let mult = Multiplier;
+        let mut pool = WorkerPool::new(mult, 1);
+
+        let worker = pool.get().await;
+        drop(worker);
 
         let worker = pool.get().await;
         let out = worker.run((10.0, 20.0)).await.unwrap();
