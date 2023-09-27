@@ -18,19 +18,7 @@ mod worker;
 pub trait Work {
     type Input: Send + 'static;
     type Output: Send + 'static;
-    async fn run(&self, input: Self::Input) -> Self::Output;
-}
-
-#[async_trait]
-impl<W> Work for Arc<W>
-where
-    W: Work + Send + Sync, // notice that Work here is not itself a Clone. that is covered by Arc
-{
-    type Input = W::Input;
-    type Output = W::Output;
-    async fn run(&self, job: Self::Input) -> Self::Output {
-        self.as_ref().run(job).await
-    }
+    async fn run(&mut self, input: Self::Input) -> Self::Output;
 }
 
 type Job<W> = oneshot::Sender<(
@@ -143,7 +131,7 @@ mod tests {
     impl Work for Adder {
         type Input = Arc<Mutex<u64>>;
         type Output = ();
-        async fn run(&self, job: Self::Input) {
+        async fn run(&mut self, job: Self::Input) {
             let mut var = job.lock().await;
             *var += self.inc_val;
         }
@@ -156,7 +144,7 @@ mod tests {
     impl Work for Multiplier {
         type Input = (f64, f64);
         type Output = f64;
-        async fn run(&self, input: Self::Input) -> Self::Output {
+        async fn run(&mut self, input: Self::Input) -> Self::Output {
             input.0 * input.1
         }
     }

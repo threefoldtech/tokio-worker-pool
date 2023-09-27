@@ -32,7 +32,7 @@ where
         }
     }
 
-    pub fn run(self) {
+    pub fn run(mut self) {
         tokio::spawn(async move {
             loop {
                 let (tx, rx) = oneshot::channel();
