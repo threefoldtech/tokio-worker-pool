@@ -1,7 +1,10 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use std::sync::Arc;
-use tokio::sync::{mpsc, oneshot};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+use tokio::sync::{mpsc, oneshot, Notify};
 use worker::*;
 
 #[macro_use]
@@ -42,6 +45,8 @@ where
     W: Work,
 {
     receiver: mpsc::Receiver<Job<W>>,
+    notify: Arc<Notify>,
+    size: Arc<AtomicUsize>,
 }
 
 impl<W> WorkerPool<W>
@@ -54,17 +59,40 @@ where
 
         let (sender, receiver) = mpsc::channel(1);
 
+        let notify = Arc::new(Notify::new());
+
+        let count = Arc::new(AtomicUsize::new(size));
         for _ in 0..size {
-            Worker::new(work.clone(), sender.clone()).run();
+            Worker::new(
+                work.clone(),
+                sender.clone(),
+                Arc::clone(&notify),
+                Arc::clone(&count),
+            )
+            .run();
         }
 
-        WorkerPool { receiver }
+        WorkerPool {
+            receiver,
+            notify,
+            size: count,
+        }
     }
 
     /// get the first free worker. returns a worker handler
     pub async fn get(&mut self) -> WorkerHandle<W> {
         let sender = self.receiver.recv().await.unwrap();
         WorkerHandle { sender }
+    }
+
+    /// close make sure all workers exited before returning
+    /// it does not cancel current worker job but instead waits
+    /// for it to finish
+    pub async fn close(mut self) {
+        self.receiver.close();
+        while self.size.load(Ordering::Relaxed) != 0 {
+            self.notify.notified().await;
+        }
     }
 }
 
@@ -138,15 +166,14 @@ mod tests {
         let adder = Adder { inc_val: 1_u64 };
         let mut pool = WorkerPool::<Adder>::new(adder, 100);
 
-        for _ in 0..=2000 {
+        for _ in 0..2000 {
             let worker = pool.get().await;
             let _ = worker.send(Arc::clone(&var)).unwrap();
         }
 
-        use tokio::time::{sleep, Duration};
-        sleep(Duration::from_millis(10)).await;
+        pool.close().await;
         let var = *var.lock().await;
-        assert_eq!(var, 2001);
+        assert_eq!(var, 2000);
     }
 
     #[tokio::test]

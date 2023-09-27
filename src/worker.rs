@@ -1,19 +1,37 @@
-use tokio::sync::{mpsc, oneshot};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+
+use tokio::sync::{mpsc, oneshot, Notify};
 
 use super::{Job, Work};
 
 pub struct Worker<W: Work> {
     work: W,
     sender: mpsc::Sender<Job<W>>,
+    notify: Arc<Notify>,
+    count: Arc<AtomicUsize>,
 }
 
 impl<W> Worker<W>
 where
     W: Work + Send + Sync + 'static,
 {
-    pub fn new(work: W, sender: mpsc::Sender<Job<W>>) -> Self {
-        Self { work, sender }
+    pub fn new(
+        work: W,
+        sender: mpsc::Sender<Job<W>>,
+        notify: Arc<Notify>,
+        count: Arc<AtomicUsize>,
+    ) -> Self {
+        Self {
+            work,
+            sender,
+            notify,
+            count,
+        }
     }
+
     pub fn run(self) {
         tokio::spawn(async move {
             loop {
@@ -36,6 +54,8 @@ where
                     }
                 };
             }
+            self.count.fetch_sub(1, Ordering::Relaxed);
+            self.notify.notify_one();
         });
     }
 }
