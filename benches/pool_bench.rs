@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -16,9 +15,7 @@ struct Noop;
 impl Work for Noop {
     type Input = ();
     type Output = ();
-    fn run(&mut self, _: Self::Input) -> impl Future<Output = ()> + Send {
-        async {}
-    }
+    async fn run(&mut self, _: Self::Input) {}
 }
 
 #[derive(Clone)]
@@ -27,8 +24,8 @@ struct Arithmetic;
 impl Work for Arithmetic {
     type Input = (u64, u64);
     type Output = u64;
-    fn run(&mut self, input: Self::Input) -> impl Future<Output = u64> + Send {
-        async move { input.0.wrapping_mul(input.1).wrapping_add(42) }
+    async fn run(&mut self, input: Self::Input) -> Self::Output {
+        input.0.wrapping_mul(input.1).wrapping_add(42)
     }
 }
 
@@ -38,8 +35,8 @@ struct SimulatedWork;
 impl Work for SimulatedWork {
     type Input = Duration;
     type Output = ();
-    fn run(&mut self, dur: Self::Input) -> impl Future<Output = ()> + Send {
-        async move { tokio::time::sleep(dur).await }
+    async fn run(&mut self, dur: Self::Input) {
+        tokio::time::sleep(dur).await
     }
 }
 
@@ -49,11 +46,9 @@ struct ContendedAdder;
 impl Work for ContendedAdder {
     type Input = Arc<Mutex<u64>>;
     type Output = ();
-    fn run(&mut self, counter: Self::Input) -> impl Future<Output = ()> + Send {
-        async move {
-            let mut val = counter.lock().await;
-            *val += 1;
-        }
+    async fn run(&mut self, counter: Self::Input) {
+        let mut val = counter.lock().await;
+        *val += 1;
     }
 }
 
@@ -195,31 +190,27 @@ fn bench_concurrent_callers(c: &mut Criterion) {
             BenchmarkId::from_parameter(callers),
             &callers,
             |b, &_callers| {
-                b.to_async(&rt).iter(|| {
-                    let jobs_per_caller = jobs_per_caller;
-                    let callers = callers;
-                    async move {
-                        let pool = Arc::new(Mutex::new(WorkerPool::new(Noop, 16)));
+                b.to_async(&rt).iter(|| async move {
+                    let pool = Arc::new(Mutex::new(WorkerPool::new(Noop, 16)));
 
-                        let mut handles = Vec::with_capacity(callers);
-                        for _ in 0..callers {
-                            let pool = Arc::clone(&pool);
-                            handles.push(tokio::spawn(async move {
-                                for _ in 0..jobs_per_caller {
-                                    let mut p = pool.lock().await;
-                                    let w = p.get().await.unwrap();
-                                    drop(p);
-                                    w.send(()).unwrap();
-                                }
-                            }));
-                        }
-                        for h in handles {
-                            h.await.unwrap();
-                        }
-
-                        pool.lock().await.drain();
-                        pool.lock().await.wait().await;
+                    let mut handles = Vec::with_capacity(callers);
+                    for _ in 0..callers {
+                        let pool = Arc::clone(&pool);
+                        handles.push(tokio::spawn(async move {
+                            for _ in 0..jobs_per_caller {
+                                let mut p = pool.lock().await;
+                                let w = p.get().await.unwrap();
+                                drop(p);
+                                w.send(()).unwrap();
+                            }
+                        }));
                     }
+                    for h in handles {
+                        h.await.unwrap();
+                    }
+
+                    pool.lock().await.drain();
+                    pool.lock().await.wait().await;
                 });
             },
         );

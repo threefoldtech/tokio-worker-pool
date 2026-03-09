@@ -1,5 +1,7 @@
 # workers
 
+[![CI](https://github.com/threefoldtech/tokio-worker-pool/actions/workflows/ci.yml/badge.svg)](https://github.com/threefoldtech/tokio-worker-pool/actions/workflows/ci.yml)
+
 `workers` is a small Tokio worker pool for bounded parallelism with a fixed
 number of long-lived workers. Each worker owns its own clone of your `Work`
 implementation and accepts one job at a time.
@@ -32,6 +34,7 @@ make build
 make test
 make check
 make version
+make ci
 ```
 
 ## Why this crate exists
@@ -505,6 +508,7 @@ Target summary:
 - `make bench-build` compiles benches without starting Criterion
 - `make stress` runs the release stress example
 - `make version` prints the current release tag
+- `make ci` runs the local equivalent of the GitHub Actions pipeline
 - `make release` runs checks, commits release metadata, and creates the git tag
 - `make clean` removes build artifacts
 
@@ -512,6 +516,22 @@ The repo also includes:
 
 - `examples/stress.rs` for repeated lifecycle stress testing
 - `benches/pool_bench.rs` for Criterion benchmarks
+
+## CI
+
+GitHub Actions runs on every push to `main` and on every pull request.
+
+The workflow currently enforces:
+
+- formatting with `make fmt-check`
+- linting with `make clippy`
+- verification with `make check`
+
+For local parity before pushing, run:
+
+```bash
+make ci
+```
 
 ## License
 

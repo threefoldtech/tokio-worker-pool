@@ -23,7 +23,10 @@ pub trait Work: Send + Sync + Clone + 'static {
 }
 
 /// The payload sent to a worker: the input and an optional channel to return the result.
-type Task<W> = (<W as Work>::Input, Option<oneshot::Sender<<W as Work>::Output>>);
+type Task<W> = (
+    <W as Work>::Input,
+    Option<oneshot::Sender<<W as Work>::Output>>,
+);
 
 /// A slot offered by an idle worker, through which the pool can send it a task.
 type WorkerSlot<W> = oneshot::Sender<Task<W>>;
@@ -206,12 +209,10 @@ mod tests {
     impl Work for Adder {
         type Input = Arc<Mutex<u64>>;
         type Output = ();
-        fn run(&mut self, job: Self::Input) -> impl Future<Output = ()> + Send {
+        async fn run(&mut self, job: Self::Input) {
             let inc_val = self.inc_val;
-            async move {
-                let mut var = job.lock().await;
-                *var += inc_val;
-            }
+            let mut var = job.lock().await;
+            *var += inc_val;
         }
     }
 
@@ -221,8 +222,8 @@ mod tests {
     impl Work for Multiplier {
         type Input = (f64, f64);
         type Output = f64;
-        fn run(&mut self, input: Self::Input) -> impl Future<Output = f64> + Send {
-            async move { input.0 * input.1 }
+        async fn run(&mut self, input: Self::Input) -> Self::Output {
+            input.0 * input.1
         }
     }
 
@@ -233,8 +234,8 @@ mod tests {
     impl Work for SlowWorker {
         type Input = std::time::Duration;
         type Output = ();
-        fn run(&mut self, dur: Self::Input) -> impl Future<Output = ()> + Send {
-            async move { tokio::time::sleep(dur).await }
+        async fn run(&mut self, dur: Self::Input) {
+            tokio::time::sleep(dur).await
         }
     }
 
@@ -248,11 +249,9 @@ mod tests {
     impl Work for BarrierWorker {
         type Input = ();
         type Output = ();
-        fn run(&mut self, _: Self::Input) -> impl Future<Output = ()> + Send {
+        async fn run(&mut self, _: Self::Input) {
             let barrier = Arc::clone(&self.barrier);
-            async move {
-                barrier.wait().await;
-            }
+            barrier.wait().await;
         }
     }
 
@@ -263,11 +262,9 @@ mod tests {
     impl Work for PanicWorker {
         type Input = bool;
         type Output = ();
-        fn run(&mut self, should_panic: Self::Input) -> impl Future<Output = ()> + Send {
-            async move {
-                if should_panic {
-                    panic!("intentional test panic");
-                }
+        async fn run(&mut self, should_panic: Self::Input) {
+            if should_panic {
+                panic!("intentional test panic");
             }
         }
     }
@@ -396,7 +393,10 @@ mod tests {
 
         // Workers should become available again
         for _ in 0..n {
-            let worker = pool.get().await.expect("worker should be available after barrier");
+            let worker = pool
+                .get()
+                .await
+                .expect("worker should be available after barrier");
             worker.send(()).unwrap();
         }
 
@@ -488,7 +488,10 @@ mod tests {
 
         // Pool should still function with remaining workers
         // (one worker is dead, 3 remain)
-        let worker = pool.get().await.expect("surviving workers should be available");
+        let worker = pool
+            .get()
+            .await
+            .expect("surviving workers should be available");
         worker.send(false).unwrap();
 
         pool.close().await;

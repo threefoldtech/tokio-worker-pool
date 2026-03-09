@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::time::Instant;
 use workers::{Work, WorkerPool};
 
@@ -8,9 +7,7 @@ struct Noop;
 impl Work for Noop {
     type Input = ();
     type Output = ();
-    fn run(&mut self, _: Self::Input) -> impl Future<Output = ()> + Send {
-        async {}
-    }
+    async fn run(&mut self, _: Self::Input) {}
 }
 
 /// Test 1: everything inside #[tokio::main] (like the original stress test)
