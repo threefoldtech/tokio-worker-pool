@@ -1,6 +1,6 @@
-# tokio-worker-pool
+# Grid Worker Pool
 
-`tokio-worker-pool` is a Rust library providing a configurable worker pool built on the Tokio async runtime. It offers managed concurrency primitives for async applications, handling task distribution and backpressure with a fixed number of long-lived workers.
+`grid_worker_pool` is a Rust library providing a configurable worker pool built on the Tokio async runtime. It offers managed concurrency primitives for async applications, handling task distribution and backpressure with a fixed number of long-lived workers.
 
 ## What this is
 
@@ -27,7 +27,7 @@ This crate is useful when you want a fixed amount of async concurrency without s
 
 ## Role in the stack
 
-`tokio-worker-pool` is a foundational concurrency library. It can be used by any Rust async service that requires controlled parallel execution, bounded resource usage, or worker-local state. It is runtime-agnostic beyond its dependency on Tokio and imposes no specific framework requirements on the applications that use it.
+`grid_worker_pool` is a foundational concurrency library. It can be used by any Rust async service that requires controlled parallel execution, bounded resource usage, or worker-local state. It is runtime-agnostic beyond its dependency on Tokio and imposes no specific framework requirements on the applications that use it.
 
 ## Relation to ThreeFold
 
@@ -43,7 +43,7 @@ Add the crate to your project:
 
 ```toml
 [dependencies]
-tokio-worker-pool = { git = "https://github.com/threefoldtech/tokio-worker-pool" }
+grid_worker_pool = { git = "https://github.com/threefoldtech/tokio-worker-pool" }
 tokio = { version = "1", features = ["rt", "sync", "macros"] }
 ```
 
@@ -51,7 +51,7 @@ tokio = { version = "1", features = ["rt", "sync", "macros"] }
 
 ```rust
 use std::future::Future;
-use tokio_worker_pool::{Work, WorkerPool};
+use grid_worker_pool::{Work, WorkerPool};
 
 #[derive(Clone)]
 struct Doubler;
