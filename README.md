@@ -43,7 +43,7 @@ Add the crate to your project:
 
 ```toml
 [dependencies]
-grid_worker_pool = { git = "https://github.com/threefoldtech/tokio-worker-pool" }
+grid_worker_pool = { git = "https://github.com/threefoldtech/grid_worker_pool" }
 tokio = { version = "1", features = ["rt", "sync", "macros"] }
 ```
 
